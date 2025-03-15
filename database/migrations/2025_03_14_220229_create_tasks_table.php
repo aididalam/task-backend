@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->string('name', 255);
             $table->text('description');
             $table->enum('status', ['To Do', 'In Progress', 'Done'])->default('To Do');
-            $table->timestamp('due_date')->nullable();
+            $table->date('due_date')->nullable();
 
             // Foreign key constraint
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');

@@ -1,12 +1,19 @@
 {
     "name": "laravel/lumen",
     "description": "The Laravel Lumen Framework.",
-    "keywords": ["framework", "laravel", "lumen"],
+    "keywords": [
+        "framework",
+        "laravel",
+        "lumen"
+    ],
     "license": "MIT",
     "type": "project",
     "require": {
         "php": "^7.3|^8.0",
+        "cboden/ratchet": "^0.4.4",
         "laravel/lumen-framework": "^8.3.1",
+        "react/http": "^1.11",
+        "textalk/websocket": "^1.6",
         "tymon/jwt-auth": "^1.0"
     },
     "require-dev": {

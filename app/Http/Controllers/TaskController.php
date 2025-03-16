@@ -3,44 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\TaskQueryParam;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use WebSocket\Client;
 
 class TaskController extends Controller {
 
 
     // Get tasks with optional filters
     public function index(Request $request) {
-        // Initialize the query for tasks based on the user ID
-        $query = Task::where('user_id', Auth::id());
+        $this->_storeQueryParams($request);  // Store query parameters in the database
 
-        // Handle the search filter (search in 'name', 'status', 'due_date')
-        if ($request->has('q') && $request->input('q') != '') {
-            $search = $request->input('q');
-            $query->where(function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('status', 'like', "%{$search}%")
-                    ->orWhere('due_date', 'like', "%{$search}%"); // Search in 'due_date' as well
-            });
-        }
-
-        // Handle the startDate filter (for filtering tasks after a certain due_date)
-        if ($request->has('startDate') && $request->input('startDate') != '') {
-            $startDate = $request->input('startDate');
-            $query->where('due_date', '>=', $startDate); // Filter tasks where 'due_date' is greater than or equal to startDate
-        }
-
-        // Handle the endDate filter (for filtering tasks before a certain due_date)
-        if ($request->has('endDate') && $request->input('endDate') != '') {
-            $endDate = $request->input('endDate');
-            $query->where('due_date', '<=', $endDate); // Filter tasks where 'due_date' is less than or equal to endDate
-        }
-
-        // Handle the status filter (optional, if status is provided)
-        if ($request->has('statuses') && !empty($request->input('statuses'))) {
-            $statuses = explode(',', $request->input('statuses')); // Assumes 'statuses' is passed as a comma-separated string
-            $query->whereIn('status', $statuses); // Adjust column name 'status' as per your model
-        }
+        // Apply the stored query parameters to the query
+        $query = $this->_applyStoredQueryParams();
 
         // Get the filtered results
         $tasks = $query->get();
@@ -48,7 +24,6 @@ class TaskController extends Controller {
         // Return the results as JSON
         return response()->json($tasks, 200);
     }
-
 
     // Create a task
     public function store(Request $request) {
@@ -59,7 +34,7 @@ class TaskController extends Controller {
             'due_date'    => 'required|date',
         ]);
 
-        $task = Task::create([
+        $item = Task::create([
             'user_id'     => Auth::id(),
             'name'        => $request->name,
             'description' => $request->description,
@@ -67,7 +42,18 @@ class TaskController extends Controller {
             'due_date'    => $request->due_date,
         ]);
 
-        return response()->json($task, 201);
+        $query = $this->_applyStoredQueryParams();
+
+        // Get the filtered results
+        $tasks = $query->get();
+        $task = $query->where('id', $item->id)->get();
+
+        $this->sendWebSocketMessage(json_encode([
+            'type' => 'task_added',
+            'task' => $task
+        ]));
+
+        return response()->json($tasks, 201);
     }
 
     // Update a task
@@ -79,6 +65,11 @@ class TaskController extends Controller {
         }
 
         $task->update($request->only(['name', 'description', 'status', 'due_date']));
+
+        $this->sendWebSocketMessage(json_encode([
+            'type' => 'task_update',
+            'task' => $task
+        ]));
 
         return response()->json($task, 200);
     }
@@ -93,6 +84,81 @@ class TaskController extends Controller {
 
         $task->delete();
 
+        $this->sendWebSocketMessage(json_encode([
+            'type' => 'task_delete',
+            'task' => $task
+        ]));
+
         return response()->json(['message' => 'Task deleted successfully'], 200);
+    }
+
+
+    private function _storeQueryParams(Request $request) {
+
+        // Convert query params to JSON format
+        $queryParams = [
+            'q'         => $request->input('q'),
+            'startDate' => $request->input('startDate'),
+            'endDate'   => $request->input('endDate'),
+            'statuses'  => $request->input('statuses')
+        ];
+
+        // Store query parameters in TaskQueryParam model
+        TaskQueryParam::updateOrCreate(
+            ['user_id' => Auth::id()],
+            ['query_params' => json_encode($queryParams)]
+        );
+    }
+
+    private function _applyStoredQueryParams() {
+        // Retrieve the stored query parameters for the user
+        $query = Task::where('user_id', Auth::id());
+        $storedQueryParams = TaskQueryParam::where('user_id', Auth::id())->first();
+        // If no query parameters are found, return the original query
+        if (!$storedQueryParams) {
+            return $query;
+        }
+
+        // Decode the stored query parameters from JSON
+        $queryParams = json_decode($storedQueryParams->query_params, true);
+
+        // Apply filters based on the stored query parameters
+        if (!empty($queryParams['q'])) {
+            $search = $queryParams['q'];
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%")
+                    ->orWhere('due_date', 'like', "%{$search}%");
+            });
+        }
+
+        if (!empty($queryParams['startDate'])) {
+            $query->where('due_date', '>=', $queryParams['startDate']);
+        }
+
+        if (!empty($queryParams['endDate'])) {
+            $query->where('due_date', '<=', $queryParams['endDate']);
+        }
+
+        if (!empty($queryParams['statuses'])) {
+            $statuses = explode(',', $queryParams['statuses']);
+            $query->whereIn('status', $statuses);
+        }
+
+        return $query;
+    }
+
+
+
+
+
+    private function sendWebSocketMessage($message) {
+        try {
+            $client = new Client("ws://localhost:8080"); // Connect using WebSocket
+            $client->send($message);
+            $client->close();
+        } catch (Exception $e) {
+            error_log("WebSocket Error: " . $e->getMessage());
+        }
     }
 }

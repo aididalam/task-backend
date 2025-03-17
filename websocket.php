@@ -13,8 +13,8 @@ $server = IoServer::factory(
             new TaskWebSocket()
         )
     ),
-    8080 // WebSocket port
+    8331 // WebSocket port
 );
 
-echo "WebSocket server running on ws://localhost:8080\n";
+echo "WebSocket server running on ws://localhost:8331\n";
 $server->run();

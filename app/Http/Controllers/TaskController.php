@@ -149,16 +149,18 @@ class TaskController extends Controller {
     }
 
 
-
-
-
     private function sendWebSocketMessage($message) {
         try {
             $client = new Client("ws://localhost:8080"); // Connect using WebSocket
-            $client->send($message);
-            $client->close();
+
+            // Check if the connection is successful
+            if ($client->isConnected()) {
+                $client->send($message);
+                $client->close();
+            }
         } catch (Exception $e) {
-            error_log("WebSocket Error: " . $e->getMessage());
+            // Optionally log the error, but nothing is done if the WebSocket server is unavailable
+            // error_log($e->getMessage()); // Uncomment to log the error
         }
     }
 }

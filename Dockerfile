@@ -25,7 +25,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 
 # Copy Lumen app to the container
-COPY . .
+COPY ./ ./
 
 # Install PHP dependencies using Composer
 RUN composer install --no-dev --optimize-autoloader

@@ -3,6 +3,9 @@
 
 This repository provides a backend for managing tasks. It includes APIs for handling user authentication and CRUD operations for tasks. The backend is built using **PHP with the Lumen framework**, **MySQL** as the database, **JWT-based authentication**, and **WebSocket** for real-time communication.
 
+Parent Repository: [https://github.com/aididalam/task-manager](https://github.com/aididalam/task-manager)
+
+
 ---
 
 ### Key Features:
